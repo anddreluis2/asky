@@ -1,135 +1,117 @@
+import { ChevronRight, Lock, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { reposApi } from "../lib/api";
 import { Repository } from "@asky/shared-types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { ScrollArea } from "./ui/scroll-area";
+import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
 
 interface RepoListProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onSelectRepo: (repo: Repository) => void;
-  onBack: () => void;
 }
 
-export const RepoList = ({ onSelectRepo, onBack }: RepoListProps) => {
+export const RepoList = ({ open, onOpenChange, onSelectRepo }: RepoListProps) => {
   const { data: repos, isLoading, error } = useQuery({
     queryKey: ["repos"],
     queryFn: reposApi.getRepositories,
+    enabled: open,
   });
 
-  if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto mt-8">
-        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <div className="text-center text-gray-300">Loading repositories...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-4xl mx-auto mt-8">
-        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <div className="text-red-400 mb-4">Failed to load repositories</div>
-          <button
-            onClick={onBack}
-            className="text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            Go back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!repos || repos.length === 0) {
-    return (
-      <div className="max-w-4xl mx-auto mt-8">
-        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <div className="text-gray-300 mb-4">No repositories found</div>
-          <button
-            onClick={onBack}
-            className="text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            Go back
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const handleSelectRepo = (repo: Repository) => {
+    onSelectRepo(repo);
+    onOpenChange(false);
+  };
 
   return (
-    <div className="max-w-4xl mx-auto mt-8">
-      <div className="mb-4">
-        <button
-          onClick={onBack}
-          className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-          Back
-        </button>
-      </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <DialogTitle className="text-2xl font-semibold">Select a Repository</DialogTitle>
+          <DialogDescription>
+            Choose a repository to start asking questions
+          </DialogDescription>
+        </DialogHeader>
 
-      <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-        <div className="p-4 border-b border-gray-700">
-          <h2 className="text-xl font-semibold text-white">Select a Repository</h2>
-        </div>
-        <div className="max-h-[600px] overflow-y-auto">
-          {repos.map((repo) => (
-            <button
-              key={repo.id}
-              onClick={() => onSelectRepo(repo)}
-              className="w-full px-6 py-4 hover:bg-gray-700 transition-colors text-left border-b border-gray-700 last:border-b-0"
-            >
-              <div className="flex items-start gap-4">
-                {repo.owner.avatar_url && (
-                  <img
-                    src={repo.owner.avatar_url}
-                    alt={repo.owner.login}
-                    className="w-10 h-10 rounded-full flex-shrink-0"
-                  />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-white font-semibold truncate">{repo.full_name}</h3>
-                    {repo.private && (
-                      <span className="text-xs bg-gray-600 text-gray-300 px-2 py-0.5 rounded flex-shrink-0">
-                        Private
-                      </span>
-                    )}
-                  </div>
-                  {repo.description && (
-                    <p className="text-gray-400 text-sm line-clamp-2">{repo.description}</p>
-                  )}
-                  <div className="text-gray-500 text-xs mt-2">{repo.owner.login}</div>
-                </div>
-                <svg
-                  className="w-5 h-5 text-gray-400 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
+        <div className="flex-1 overflow-hidden">
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              <span className="ml-3 text-muted-foreground">Loading repositories...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="px-6 py-12 text-center">
+              <div className="text-destructive mb-4">Failed to load repositories</div>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </div>
+          )}
+
+          {!isLoading && !error && (!repos || repos.length === 0) && (
+            <div className="px-6 py-12 text-center">
+              <div className="text-muted-foreground mb-4">No repositories found</div>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </div>
+          )}
+
+          {!isLoading && !error && repos && repos.length > 0 && (
+            <ScrollArea className="h-[calc(85vh-120px)]">
+              <div className="divide-y">
+                {repos.map((repo) => (
+                  <button
+                    key={repo.id}
+                    onClick={() => handleSelectRepo(repo)}
+                    className="w-full px-6 py-4 hover:bg-accent transition-colors text-left group"
+                  >
+                    <div className="flex items-start gap-4">
+                      {repo.owner.avatar_url && (
+                        <img
+                          src={repo.owner.avatar_url}
+                          alt={repo.owner.login}
+                          className="w-10 h-10 rounded-full flex-shrink-0 ring-2 ring-border"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold truncate text-foreground">
+                            {repo.full_name}
+                          </h3>
+                          {repo.private && (
+                            <span className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-md flex-shrink-0">
+                              <Lock className="w-3 h-3" />
+                              Private
+                            </span>
+                          )}
+                        </div>
+                        {repo.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-1">
+                            {repo.description}
+                          </p>
+                        )}
+                        <div className="text-xs text-muted-foreground">{repo.owner.login}</div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0 group-hover:text-foreground transition-colors" />
+                    </div>
+                  </button>
+                ))}
               </div>
-            </button>
-          ))}
+            </ScrollArea>
+          )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

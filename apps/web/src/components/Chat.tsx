@@ -1,4 +1,6 @@
+import { ChevronLeft, MessageCircle, Send } from "lucide-react";
 import { Repository } from "@asky/shared-types";
+import { Button } from "./ui/button";
 
 interface ChatProps {
   repo: Repository;
@@ -7,56 +9,32 @@ interface ChatProps {
 
 export const Chat = ({ repo, onBack }: ChatProps) => {
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto mt-8">
+    <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto">
       {/* Header with back button */}
-      <div className="mb-4">
-        <button
-          onClick={onBack}
-          className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
+      <div>
+        <Button
+          variant="ghost"
+          className="gap-2 text-muted-foreground hover:text-foreground"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
+          <ChevronLeft className="w-4 h-4" />
           Back to repositories
-        </button>
+        </Button>
       </div>
 
       {/* Chat container */}
-      <div className="flex-1 flex flex-col bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+      <div className="flex-1 flex flex-col bg-card rounded-xl border border-border shadow-lg overflow-hidden">
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-3xl mx-auto">
             {/* Welcome message */}
             <div className="flex gap-4 mb-6">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex-shrink-0 flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                  />
-                </svg>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0 flex items-center justify-center shadow-md">
+                <MessageCircle className="w-5 h-5 text-primary-foreground" />
               </div>
               <div className="flex-1">
-                <div className="bg-gray-700 rounded-lg p-4 text-gray-100">
-                  <p className="text-lg leading-relaxed">
-                    Welcome to asky on <span className="font-semibold text-blue-400">{repo.full_name}</span>. Ask me for the context of this project.
+                <div className="bg-muted rounded-xl p-4 text-foreground">
+                  <p className="text-base leading-relaxed">
+                    Welcome to asky on <span className="font-semibold text-primary">{repo.full_name}</span>. Ask me for the context of this project.
                   </p>
                 </div>
               </div>
@@ -65,33 +43,23 @@ export const Chat = ({ repo, onBack }: ChatProps) => {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-gray-700 p-4">
+        <div className="border-t border-border bg-background/50 backdrop-blur-sm p-4">
           <div className="max-w-3xl mx-auto">
             <div className="relative">
               <textarea
                 disabled
                 placeholder="Ask about this repository..."
-                className="w-full bg-gray-700 text-white rounded-lg px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-background border border-input text-foreground rounded-lg px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground"
                 rows={1}
               />
-              <button
+              <Button
                 disabled
-                className="absolute right-3 bottom-3 text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                  />
-                </svg>
-              </button>
+                <Send className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </div>
