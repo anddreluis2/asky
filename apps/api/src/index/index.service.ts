@@ -92,9 +92,9 @@ export class IndexService {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       
-      if (errorMessage.includes("Voyage AI API key")) {
+      if (errorMessage.includes("OpenAI API key")) {
         throw new HttpException(
-          "Invalid Voyage AI API key. Please check your VOYAGE_API_KEY environment variable.",
+          "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.",
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
@@ -124,6 +124,8 @@ export class IndexService {
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       const embeddingVector = embeddings[i];
+      // Convert array to pgvector format: [0.1, 0.2, ...] as string
+      const vectorString = `[${embeddingVector.join(",")}]`;
 
       await this.prisma.$executeRaw`
         INSERT INTO "CodeChunk" (id, "repositoryId", "filePath", content, "startLine", "endLine", embedding, "createdAt")
@@ -134,7 +136,7 @@ export class IndexService {
           ${chunk.content},
           ${chunk.startLine},
           ${chunk.endLine},
-          ${embeddingVector}::vector,
+          ${vectorString}::vector,
           NOW()
         )
       `;

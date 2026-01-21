@@ -10,7 +10,7 @@ const envSchema = z.object({
   GITHUB_CALLBACK_URL: z.string().url().optional(),
   JWT_SECRET: z.string().min(1),
   GROQ_API_KEY: z.string().min(1),
-  VOYAGE_API_KEY: z.string().min(1),
+  OPENAI_API_KEY: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;

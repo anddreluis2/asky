@@ -102,6 +102,9 @@ export class ChatService {
     embedding: number[],
     limit: number,
   ): Promise<RelevantChunk[]> {
+    // Convert array to pgvector format: [0.1, 0.2, ...] as string
+    const vectorString = `[${embedding.join(",")}]`;
+
     // Use raw SQL for vector similarity search
     const chunks = await this.prisma.$queryRaw<RelevantChunk[]>`
       SELECT 
@@ -109,11 +112,11 @@ export class ChatService {
         content,
         "startLine",
         "endLine",
-        1 - (embedding <=> ${embedding}::vector) as similarity
+        1 - (embedding <=> ${vectorString}::vector) as similarity
       FROM "CodeChunk"
       WHERE "repositoryId" = ${repositoryId}
         AND embedding IS NOT NULL
-      ORDER BY embedding <=> ${embedding}::vector
+      ORDER BY embedding <=> ${vectorString}::vector
       LIMIT ${limit}
     `;
 

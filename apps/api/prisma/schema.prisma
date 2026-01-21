@@ -45,7 +45,7 @@ model CodeChunk {
   content      String
   startLine    Int
   endLine      Int
-  embedding    Unsupported("vector(1024)")?
+  embedding    Unsupported("vector(1536)")?
   createdAt    DateTime                     @default(now())
 
   @@index([repositoryId])
