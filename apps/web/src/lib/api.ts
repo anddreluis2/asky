@@ -1,5 +1,5 @@
 import axios from "axios";
-import { User, UserSchema } from "@asky/shared-types";
+import { User, UserSchema, Repository, RepositorySchema } from "@asky/shared-types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -33,5 +33,24 @@ export const authApi = {
 
   githubLogin: () => {
     window.location.href = `${API_URL}/auth/github`;
+  },
+};
+
+export const reposApi = {
+  getRepositories: async (): Promise<Repository[]> => {
+    const response = await api.get("/repos");
+    const data = response.data;
+    
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    return data.map((repo: unknown) => {
+      const parsed = RepositorySchema.safeParse(repo);
+      if (!parsed.success) {
+        throw new Error("Invalid repository data");
+      }
+      return parsed.data;
+    });
   },
 };

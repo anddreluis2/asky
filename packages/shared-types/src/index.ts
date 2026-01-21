@@ -26,3 +26,18 @@ export const GitHubProfileSchema = z.object({
 });
 
 export type GitHubProfile = z.infer<typeof GitHubProfileSchema>;
+
+export const RepositorySchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  full_name: z.string(),
+  description: z.string().nullable(),
+  private: z.boolean(),
+  html_url: z.string(),
+  owner: z.object({
+    login: z.string(),
+    avatar_url: z.string().optional(),
+  }),
+});
+
+export type Repository = z.infer<typeof RepositorySchema>;

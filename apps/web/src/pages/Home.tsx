@@ -1,9 +1,33 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { RepoList } from "../components/RepoList";
+import { Chat } from "../components/Chat";
+import { Repository } from "@asky/shared-types";
+
+type View = "initial" | "repo-list" | "chat";
 
 export const Home = () => {
   const { user, logout } = useAuth();
-  const [showSearch, setShowSearch] = useState(false);
+  const [view, setView] = useState<View>("initial");
+  const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
+
+  const handleShowRepos = () => {
+    setView("repo-list");
+  };
+
+  const handleSelectRepo = (repo: Repository) => {
+    setSelectedRepo(repo);
+    setView("chat");
+  };
+
+  const handleBackToInitial = () => {
+    setView("initial");
+    setSelectedRepo(null);
+  };
+
+  const handleBackToRepos = () => {
+    setView("repo-list");
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
@@ -32,44 +56,30 @@ export const Home = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center">
-          <h2 className="text-5xl font-bold text-white mb-6">Start asking</h2>
-          <p className="text-gray-300 text-lg mb-12">
-            Ask questions about any GitHub repository and get AI-powered explanations
-          </p>
+        {view === "initial" && (
+          <div className="text-center">
+            <h2 className="text-5xl font-bold text-white mb-6">Start asking</h2>
+            <p className="text-gray-300 text-lg mb-12">
+              Ask questions about any GitHub repository and get AI-powered explanations
+            </p>
 
-          {/* Search Repository Button */}
-          <button
-            onClick={() => setShowSearch(!showSearch)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
-          >
-            Search Repositories
-          </button>
+            {/* Search Repository Button */}
+            <button
+              onClick={handleShowRepos}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
+            >
+              Search Repositories
+            </button>
+          </div>
+        )}
 
-          {/* Repository Search UI (Placeholder) */}
-          {showSearch && (
-            <div className="mt-8 max-w-2xl mx-auto">
-              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-                <h3 className="text-xl font-semibold text-white mb-4">
-                  Search GitHub Repositories
-                </h3>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Enter repository name..."
-                    className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500"
-                  />
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
-                    Search
-                  </button>
-                </div>
-                <p className="text-gray-400 text-sm mt-4">
-                  UI only - Backend integration coming soon
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        {view === "repo-list" && (
+          <RepoList onSelectRepo={handleSelectRepo} onBack={handleBackToInitial} />
+        )}
+
+        {view === "chat" && selectedRepo && (
+          <Chat repo={selectedRepo} onBack={handleBackToRepos} />
+        )}
       </main>
     </div>
   );
