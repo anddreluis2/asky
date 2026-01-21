@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "../lib/api";
 import { useAuthStore } from "../stores/authStore";
@@ -9,15 +9,27 @@ export const useAuth = () => {
   const setUser = useAuthStore((state) => state.setUser);
   const clearUser = useAuthStore((state) => state.clearUser);
 
-  const { isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: authApi.getProfile,
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-    onSuccess: (profile) => {
-      setUser(profile);
-    },
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
+    retry: 1,
   });
+
+  useEffect(() => {
+    if (data !== undefined) {
+      setUser(data);
+    }
+  }, [data, setUser]);
+
+  useEffect(() => {
+    if (isError) {
+      clearUser();
+    }
+  }, [isError, clearUser]);
 
   const { mutateAsync: logoutAsync } = useMutation({
     mutationFn: authApi.logout,

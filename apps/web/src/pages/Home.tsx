@@ -54,19 +54,10 @@ export const Home = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {!selectedRepo && (
-          <div className="space-y-10">
-            <HomeDashboard
-              onSearchRepos={() => setRepoModalOpen(true)}
-              onSelectRepo={setSelectedRepo}
-            />
-            <div className="text-center space-y-4">
-              <h3 className="text-2xl font-semibold text-foreground">Start asking</h3>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Pick a repository and ask questions about the codebase. Indexing happens once per
-                repository.
-              </p>
-            </div>
-          </div>
+          <HomeDashboard
+            onSearchRepos={() => setRepoModalOpen(true)}
+            onSelectRepo={setSelectedRepo}
+          />
         )}
 
         {selectedRepo && (
