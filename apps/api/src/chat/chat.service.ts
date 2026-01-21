@@ -20,6 +20,11 @@ interface ChatMessage {
   content: string;
 }
 
+type StreamCallbacks = {
+  onToken: (token: string) => void;
+  onDone: (payload: { answer: string; sources: RelevantChunk[] }) => void;
+};
+
 @Injectable()
 export class ChatService {
   private openai: OpenAI;
@@ -97,6 +102,71 @@ export class ChatService {
       answer,
       sources: relevantChunks,
     };
+  }
+
+  async chatStream(
+    repoFullName: string,
+    question: string,
+    userId: string,
+    conversationHistory: ChatMessage[] = [],
+    callbacks: StreamCallbacks,
+  ): Promise<void> {
+    // Find the indexed repository
+    const repo = await (this.prisma as any).indexedRepository.findFirst({
+      where: {
+        fullName: repoFullName,
+        userId,
+      },
+    });
+
+    if (!repo) {
+      throw new HttpException(
+        "Repository not indexed. Please index the repository first.",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Retrieval (same as non-stream)
+    const questionEmbedding = await this.embedding.generateEmbedding(question);
+    const relevantChunks = await this.searchSimilarChunks(repo.id, questionEmbedding, 8);
+
+    if (relevantChunks.length === 0) {
+      callbacks.onDone({
+        answer: "I couldn't find any relevant code in this repository to answer your question.",
+        sources: [],
+      });
+      return;
+    }
+
+    const context = this.buildContext(relevantChunks);
+    const systemPrompt = this.buildSystemPrompt(repoFullName, context);
+
+    const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+      { role: "system", content: systemPrompt },
+      ...conversationHistory.map((msg) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      })),
+      { role: "user", content: question },
+    ];
+
+    const stream = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages,
+      temperature: 0.3,
+      max_tokens: 2048,
+      stream: true,
+    });
+
+    let answer = "";
+    for await (const event of stream) {
+      const token = event.choices?.[0]?.delta?.content ?? "";
+      if (!token) continue;
+      answer += token;
+      callbacks.onToken(token);
+    }
+
+    callbacks.onDone({ answer, sources: relevantChunks });
   }
 
   private async searchSimilarChunks(

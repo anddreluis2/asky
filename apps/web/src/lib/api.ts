@@ -121,4 +121,98 @@ export const reposApi = {
     }
     return parsed.data;
   },
+
+  chatStream: async (
+    fullName: string,
+    question: string,
+    conversationHistory: ChatMessage[] = [],
+    handlers?: {
+      onToken?: (token: string) => void;
+      onDone?: (response: ChatResponse) => void;
+      onError?: (message: string) => void;
+    },
+  ): Promise<ChatResponse> => {
+    const res = await fetch(`${API_URL}/repos/${fullName}/chat/stream`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ question, conversationHistory }),
+    });
+
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `Stream request failed (${res.status})`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    let finalAnswer = "";
+    let finalPayload: ChatResponse | null = null;
+
+    const emitToken = (t: string) => {
+      finalAnswer += t;
+      handlers?.onToken?.(t);
+    };
+
+    const parseEventBlock = (block: string) => {
+      // Expect SSE blocks like:
+      // event: token
+      // data: {"token":"..."}
+      const lines = block.split("\n").map((l) => l.trimEnd());
+      const eventLine = lines.find((l) => l.startsWith("event:"));
+      const dataLine = lines.find((l) => l.startsWith("data:"));
+      if (!eventLine || !dataLine) return;
+      const event = eventLine.slice("event:".length).trim();
+      const dataRaw = dataLine.slice("data:".length).trim();
+
+      try {
+        const data = JSON.parse(dataRaw) as any;
+        if (event === "token" && typeof data.token === "string") {
+          emitToken(data.token);
+        }
+        if (event === "done") {
+          finalPayload = data as ChatResponse;
+        }
+        if (event === "error") {
+          const msg = typeof data.message === "string" ? data.message : "Stream error";
+          handlers?.onError?.(msg);
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Split by SSE separator
+      let idx: number;
+      while ((idx = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 2);
+        if (!block || block.startsWith(":")) continue; // comments/keepalive
+        parseEventBlock(block);
+      }
+    }
+
+    const response: ChatResponse =
+      finalPayload ??
+      ({
+        answer: finalAnswer,
+        sources: [],
+      } as ChatResponse);
+
+    const parsed = ChatResponseSchema.safeParse(response);
+    if (!parsed.success) {
+      throw new Error("Invalid chat response data");
+    }
+    handlers?.onDone?.(parsed.data);
+    return parsed.data;
+  },
 };
