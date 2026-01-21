@@ -1,4 +1,3 @@
-import { Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./pages/Login";
 import { Home } from "./pages/Home";
