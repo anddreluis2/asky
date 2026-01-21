@@ -2,6 +2,7 @@ import { Injectable, Inject } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { Profile, Strategy, StrategyOption } from "passport-github2";
 import { AuthService } from "./auth.service";
+import { User } from "@asky/shared-types";
 
 @Injectable()
 export class GitHubStrategy extends PassportStrategy(Strategy, "github") {
@@ -14,9 +15,13 @@ export class GitHubStrategy extends PassportStrategy(Strategy, "github") {
     } as StrategyOption);
   }
 
-  async validate(accessToken: string, _refreshToken: string, profile: Profile): Promise<any> {
+  async validate(accessToken: string, _refreshToken: string, profile: Profile): Promise<User> {
+    if (!profile.id || !profile.username) {
+      throw new Error("Invalid GitHub profile: missing id or username");
+    }
+
     const user = await this.authService.validateGitHubUser(
-      profile.id,
+      String(profile.id),
       profile.username,
       profile.photos?.[0]?.value,
       accessToken,

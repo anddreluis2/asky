@@ -4,9 +4,13 @@ const envSchema = z.object({
   NODE_ENV: z.string().optional(),
   PORT: z.coerce.number().default(3001),
   FRONTEND_URL: z.string().url().optional().default("http://localhost:5173"),
+  DATABASE_URL: z.string().min(1),
   GITHUB_CLIENT_ID: z.string().min(1),
   GITHUB_CLIENT_SECRET: z.string().min(1),
   GITHUB_CALLBACK_URL: z.string().url().optional(),
+  JWT_SECRET: z.string().min(1),
+  GROQ_API_KEY: z.string().min(1),
+  VOYAGE_API_KEY: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;

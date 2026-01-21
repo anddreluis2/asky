@@ -2,6 +2,7 @@ import { Controller, Get, Req, Res, UseGuards, HttpStatus, Inject } from "@nestj
 import { AuthGuard } from "@nestjs/passport";
 import { Request, Response } from "express";
 import { AuthService } from "./auth.service";
+import { User } from "@asky/shared-types";
 
 @Controller("auth")
 export class GitHubAuthController {
@@ -16,8 +17,15 @@ export class GitHubAuthController {
   @Get("github/callback")
   @UseGuards(AuthGuard("github"))
   async githubAuthCallback(@Req() req: Request, @Res() res: Response): Promise<void> {
-    const user = req.user as any;
-    const token = await this.authService.login(user);
+    const user = req.user;
+    if (!user || typeof user !== "object" || !("id" in user)) {
+      res.status(HttpStatus.UNAUTHORIZED).json({ message: "Authentication failed" });
+      return;
+    }
+    
+    // User is validated by GitHubStrategy which returns User
+    const validatedUser = user as User;
+    const token = await this.authService.login(validatedUser);
 
     // Set httpOnly cookie with JWT
     res.cookie("auth_token", token, {
@@ -38,17 +46,17 @@ export class GitHubAuthController {
   }
 
   @Get("me")
-  async getProfile(@Req() req: Request): Promise<any> {
+  async getProfile(@Req() req: Request): Promise<User | null> {
     const token = req.cookies.auth_token;
 
-    if (!token) {
+    if (!token || typeof token !== "string") {
       return null;
     }
 
     try {
       const user = await this.authService.verifyToken(token);
       return user;
-    } catch (error) {
+    } catch {
       return null;
     }
   }

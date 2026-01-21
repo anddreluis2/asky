@@ -11,7 +11,6 @@ import {
 } from "./ui/dialog";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
-import { cn } from "@/lib/utils";
 
 interface RepoListProps {
   open: boolean;

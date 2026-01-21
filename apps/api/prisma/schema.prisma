@@ -2,20 +2,51 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  extensions = [vector, pgcrypto]
 }
 
 model User {
-  id           String   @id @default(uuid())
-  githubId     String   @unique
-  username     String
-  avatar       String?
-  accessToken  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String              @id @default(uuid())
+  githubId            String              @unique
+  username            String
+  avatar              String?
+  accessToken         String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  indexedRepositories IndexedRepository[]
+}
+
+model IndexedRepository {
+  id            String      @id @default(uuid())
+  githubId      Int         @unique
+  fullName      String
+  defaultBranch String
+  lastIndexedAt DateTime
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  chunks        CodeChunk[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([userId])
+}
+
+model CodeChunk {
+  id           String                       @id @default(uuid())
+  repositoryId String
+  repository   IndexedRepository            @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  filePath     String
+  content      String
+  startLine    Int
+  endLine      Int
+  embedding    Unsupported("vector(1024)")?
+  createdAt    DateTime                     @default(now())
+
+  @@index([repositoryId])
 }
