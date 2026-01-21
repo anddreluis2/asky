@@ -45,6 +45,9 @@ model CodeChunk {
   content      String
   startLine    Int
   endLine      Int
+  chunkType    String?                      // "function" | "class" | "method" | "module" | "imports" | "other"
+  name         String?                      // Function/class name for better context
+  language     String?                      // "typescript" | "python" | etc.
   embedding    Unsupported("vector(1536)")?
   createdAt    DateTime                     @default(now())
 

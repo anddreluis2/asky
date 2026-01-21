@@ -2,13 +2,7 @@ import { Injectable, Inject, HttpException, HttpStatus } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { GitHubService } from "../github/github.service";
 import { EmbeddingService } from "../embedding/embedding.service";
-
-interface CodeChunk {
-  filePath: string;
-  content: string;
-  startLine: number;
-  endLine: number;
-}
+import { ParserService, ParsedChunk } from "../parser/parser.service";
 
 @Injectable()
 export class IndexService {
@@ -16,6 +10,7 @@ export class IndexService {
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(GitHubService) private github: GitHubService,
     @Inject(EmbeddingService) private embedding: EmbeddingService,
+    @Inject(ParserService) private parser: ParserService,
   ) {}
 
   async getIndexStatus(repoFullName: string, userId: string) {
@@ -77,8 +72,8 @@ export class IndexService {
     const filePaths = tree.map((item) => item.path);
     const files = await this.github.getMultipleFileContents(owner, repo, filePaths, accessToken);
 
-    // Split files into chunks
-    const chunks = this.splitFilesIntoChunks(files);
+    // Parse files into smart chunks using tree-sitter AST
+    const chunks = await this.parser.parseFiles(files);
 
     if (chunks.length === 0) {
       throw new HttpException("No content to index", HttpStatus.BAD_REQUEST);
@@ -128,7 +123,7 @@ export class IndexService {
       const vectorString = `[${embeddingVector.join(",")}]`;
 
       await this.prisma.$executeRaw`
-        INSERT INTO "CodeChunk" (id, "repositoryId", "filePath", content, "startLine", "endLine", embedding, "createdAt")
+        INSERT INTO "CodeChunk" (id, "repositoryId", "filePath", content, "startLine", "endLine", "chunkType", name, language, embedding, "createdAt")
         VALUES (
           gen_random_uuid(),
           ${indexedRepo.id},
@@ -136,6 +131,9 @@ export class IndexService {
           ${chunk.content},
           ${chunk.startLine},
           ${chunk.endLine},
+          ${chunk.chunkType},
+          ${chunk.name ?? null},
+          ${chunk.language},
           ${vectorString}::vector,
           NOW()
         )
@@ -149,69 +147,17 @@ export class IndexService {
     };
   }
 
-  private splitFilesIntoChunks(files: { path: string; content: string }[]): CodeChunk[] {
-    const chunks: CodeChunk[] = [];
-    const maxChunkSize = 1500; // ~375 tokens (assuming 4 chars per token)
-    const overlapSize = 200; // Overlap between chunks for context
-
-    for (const file of files) {
-      const lines = file.content.split("\n");
-
-      // For small files, keep as single chunk
-      if (file.content.length <= maxChunkSize) {
-        chunks.push({
-          filePath: file.path,
-          content: file.content,
-          startLine: 1,
-          endLine: lines.length,
-        });
-        continue;
-      }
-
-      // Split larger files into overlapping chunks
-      let currentChunk = "";
-      let chunkStartLine = 1;
-      let currentLine = 1;
-
-      for (const line of lines) {
-        const potentialChunk = currentChunk + (currentChunk ? "\n" : "") + line;
-
-        if (potentialChunk.length > maxChunkSize && currentChunk) {
-          // Save current chunk
-          chunks.push({
-            filePath: file.path,
-            content: currentChunk,
-            startLine: chunkStartLine,
-            endLine: currentLine - 1,
-          });
-
-          // Start new chunk with overlap
-          const overlapLines = currentChunk.split("\n").slice(-3).join("\n");
-          currentChunk = overlapLines + "\n" + line;
-          chunkStartLine = Math.max(1, currentLine - 3);
-        } else {
-          currentChunk = potentialChunk;
-        }
-
-        currentLine++;
-      }
-
-      // Don't forget the last chunk
-      if (currentChunk.trim()) {
-        chunks.push({
-          filePath: file.path,
-          content: currentChunk,
-          startLine: chunkStartLine,
-          endLine: lines.length,
-        });
-      }
+  private formatChunkForEmbedding(chunk: ParsedChunk): string {
+    // Include metadata for richer context in embedding
+    const parts = [`File: ${chunk.filePath}`];
+    
+    if (chunk.name) {
+      parts.push(`${chunk.chunkType}: ${chunk.name}`);
     }
-
-    return chunks;
-  }
-
-  private formatChunkForEmbedding(chunk: CodeChunk): string {
-    // Include file path for context in embedding
-    return `File: ${chunk.filePath}\nLines ${chunk.startLine}-${chunk.endLine}:\n${chunk.content}`;
+    
+    parts.push(`Lines ${chunk.startLine}-${chunk.endLine}:`);
+    parts.push(chunk.content);
+    
+    return parts.join("\n");
   }
 }

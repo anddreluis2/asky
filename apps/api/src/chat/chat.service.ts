@@ -1,6 +1,6 @@
 import { Injectable, Inject, HttpException, HttpStatus } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmbeddingService } from "../embedding/embedding.service";
 import type { Env } from "../config/env";
@@ -10,6 +10,8 @@ interface RelevantChunk {
   content: string;
   startLine: number;
   endLine: number;
+  chunkType: string | null;
+  name: string | null;
   similarity: number;
 }
 
@@ -20,15 +22,15 @@ interface ChatMessage {
 
 @Injectable()
 export class ChatService {
-  private groq: Groq;
+  private openai: OpenAI;
 
   constructor(
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(EmbeddingService) private embedding: EmbeddingService,
     @Inject(ConfigService) private configService: ConfigService<Env>,
   ) {
-    this.groq = new Groq({
-      apiKey: this.configService.get("GROQ_API_KEY"),
+    this.openai = new OpenAI({
+      apiKey: this.configService.get("OPENAI_API_KEY"),
     });
   }
 
@@ -81,9 +83,9 @@ export class ChatService {
       { role: "user", content: question },
     ];
 
-    // Call Groq LLM
-    const completion = await this.groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+    // Call OpenAI GPT-4o-mini
+    const completion = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
       messages,
       temperature: 0.3,
       max_tokens: 2048,
@@ -112,6 +114,8 @@ export class ChatService {
         content,
         "startLine",
         "endLine",
+        "chunkType",
+        name,
         1 - (embedding <=> ${vectorString}::vector) as similarity
       FROM "CodeChunk"
       WHERE "repositoryId" = ${repositoryId}
@@ -125,10 +129,12 @@ export class ChatService {
 
   private buildContext(chunks: RelevantChunk[]): string {
     return chunks
-      .map(
-        (chunk, index) =>
-          `--- Source ${index + 1}: ${chunk.filePath} (lines ${chunk.startLine}-${chunk.endLine}) ---\n${chunk.content}`,
-      )
+      .map((chunk, index) => {
+        const header = chunk.name && chunk.chunkType
+          ? `--- Source ${index + 1}: ${chunk.filePath} | ${chunk.chunkType}: ${chunk.name} (lines ${chunk.startLine}-${chunk.endLine}) ---`
+          : `--- Source ${index + 1}: ${chunk.filePath} (lines ${chunk.startLine}-${chunk.endLine}) ---`;
+        return `${header}\n${chunk.content}`;
+      })
       .join("\n\n");
   }
 
@@ -140,7 +146,7 @@ You have access to relevant code snippets from the repository. Use these to answ
 IMPORTANT GUIDELINES:
 - Base your answers ONLY on the provided code context
 - If the context doesn't contain enough information, say so
-- When referencing code, mention the file path and line numbers
+- When referencing code, mention the file path, function/class name, and line numbers
 - Be concise but thorough
 - Use code blocks with proper syntax highlighting when showing code
 - If asked about something not in the context, explain what you can see and suggest what files might contain the answer
