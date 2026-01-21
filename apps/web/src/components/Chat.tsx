@@ -14,6 +14,12 @@ interface DisplayMessage extends ChatMessage {
   sources?: CodeSource[];
 }
 
+type ChatStreamVars = {
+  question: string;
+  history: ChatMessage[];
+  assistantIndex: number;
+};
+
 export const Chat = ({ repo, onBack }: ChatProps) => {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
@@ -40,15 +46,28 @@ export const Chat = ({ repo, onBack }: ChatProps) => {
 
   // Chat mutation
   const chatMutation = useMutation({
-    mutationFn: (question: string) => {
-      const history = messages.map((m) => ({ role: m.role, content: m.content }));
-      return reposApi.chatStream(repo.full_name, question, history);
-    },
-    onSuccess: (response) => {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: response.answer, sources: response.sources },
-      ]);
+    mutationFn: async ({ question, history, assistantIndex }: ChatStreamVars) => {
+      return reposApi.chatStream(repo.full_name, question, history, {
+        onToken: (token) => {
+          setMessages((prev) =>
+            prev.map((m, idx) =>
+              idx === assistantIndex ? { ...m, content: (m.content ?? "") + token } : m,
+            ),
+          );
+        },
+        onDone: (resp) => {
+          setMessages((prev) =>
+            prev.map((m, idx) => (idx === assistantIndex ? { ...m, sources: resp.sources } : m)),
+          );
+        },
+        onError: (message) => {
+          setMessages((prev) =>
+            prev.map((m, idx) =>
+              idx === assistantIndex ? { ...m, content: `Error: ${message}` } : m,
+            ),
+          );
+        },
+      });
     },
   });
 
@@ -66,44 +85,32 @@ export const Chat = ({ repo, onBack }: ChatProps) => {
       const trimmedInput = input.trim();
       if (!trimmedInput || chatMutation.isPending) return;
 
-      setMessages((prev) => [...prev, { role: "user", content: trimmedInput }]);
-      setInput("");
-      // Optimistic assistant message that will be streamed into
+      const nextUserMessage: DisplayMessage = { role: "user", content: trimmedInput };
       const assistantIndex = messages.length + 1;
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      const history = [...messages, { role: "user", content: trimmedInput }].map((m) => ({
+      setMessages((prev) => [...prev, nextUserMessage, { role: "assistant", content: "" }]);
+      setInput("");
+
+      const history = [...messages, nextUserMessage].map((m) => ({
         role: m.role,
         content: m.content,
       })) as ChatMessage[];
 
-      reposApi
-        .chatStream(repo.full_name, trimmedInput, history, {
-          onToken: (token) => {
+      chatMutation.mutate(
+        { question: trimmedInput, history, assistantIndex },
+        {
+          onError: (e: unknown) => {
+            const msg = e instanceof Error ? e.message : "Chat failed";
             setMessages((prev) =>
               prev.map((m, idx) =>
-                idx === assistantIndex ? { ...m, content: (m.content ?? "") + token } : m,
+                idx === assistantIndex ? { ...m, content: `Error: ${msg}` } : m,
               ),
             );
           },
-          onDone: (resp) => {
-            setMessages((prev) =>
-              prev.map((m, idx) =>
-                idx === assistantIndex ? { ...m, sources: resp.sources } : m,
-              ),
-            );
-          },
-        })
-        .catch((e: unknown) => {
-          const msg = e instanceof Error ? e.message : "Chat failed";
-          setMessages((prev) =>
-            prev.map((m, idx) =>
-              idx === assistantIndex ? { ...m, content: `Error: ${msg}` } : m,
-            ),
-          );
-        });
+        },
+      );
     },
-    [input, messages, repo.full_name],
+    [chatMutation, input, messages],
   );
 
   const handleKeyDown = useCallback(

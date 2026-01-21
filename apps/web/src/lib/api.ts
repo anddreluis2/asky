@@ -170,15 +170,27 @@ export const reposApi = {
       const dataRaw = dataLine.slice("data:".length).trim();
 
       try {
-        const data = JSON.parse(dataRaw) as any;
-        if (event === "token" && typeof data.token === "string") {
-          emitToken(data.token);
+        const data: unknown = JSON.parse(dataRaw);
+        if (
+          event === "token" &&
+          data &&
+          typeof data === "object" &&
+          "token" in data &&
+          typeof (data as { token: unknown }).token === "string"
+        ) {
+          emitToken((data as { token: string }).token);
         }
         if (event === "done") {
           finalPayload = data as ChatResponse;
         }
         if (event === "error") {
-          const msg = typeof data.message === "string" ? data.message : "Stream error";
+          const msg =
+            data &&
+            typeof data === "object" &&
+            "message" in data &&
+            typeof (data as { message: unknown }).message === "string"
+              ? (data as { message: string }).message
+              : "Stream error";
           handlers?.onError?.(msg);
         }
       } catch {
